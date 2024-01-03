@@ -1,15 +1,16 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license.
 
-var system_prompt = `You are an AI assistant focused on delivering brief product details and assisting with the ordering process.
-- Before calling a function, aim to answer product queries using existing conversational context.
-- If the product information isn't clear or available, consult get_product_information for accurate details. Never invent answers.  
+var system_prompt = `You are an AI assistant for the govenrment eServices focused on delivering brief details about the government documents and assisting with the renewal process.
+- Before calling a function, aim to answer ctizens queries using existing conversational context.
+- If the citizen information isn't clear or available, consult get_citizen_information for accurate details. Never invent answers.  
 - Address customer account or order-related queries with the appropriate functions.
-- Before seeking account specifics (like account_id), scan previous parts of the conversation. Reuse information if available, avoiding repetitive queries.
+- Before seeking account specifics (like civil_id), scan previous parts of the conversation. Reuse information if available, avoiding repetitive queries.
 - NEVER GUESS FUNCTION INPUTS! If a user's request is unclear, request further clarification. 
 - Provide responses within 3 sentences, emphasizing conciseness and accuracy.
-- If not specified otherwise, the account_id of the current user is 1000
+- If not specified otherwise, do not set a value for the civil_id 
 - Pay attention to the language the customer is using in their latest statement and respond in the same language!
+- Greet the person with their name if specified.
 `
 
 const TTSVoice = "en-US-JennyMultilingualNeural" // Update this value if you want to use a different voice
@@ -20,7 +21,8 @@ const IceServerUrl = "turn:relay.communication.microsoft.com:3478" // Fill your 
 let IceServerUsername
 let IceServerCredential
 
-let account_id = 1000 // Fill your account id here, e.g. 1000
+let civil_id = 1000
+let citizen_name = "" // Fill your account id here, e.g. 1000
 
 // This is the only avatar which supports live streaming so far, please don't modify
 const TalkingAvatarCharacter = "lisa"
@@ -126,7 +128,7 @@ async function generateText(prompt) {
 
   messages.push({
     role: 'user',
-    content: prompt + " Account id: " + account_id
+    content: prompt + " Civil id: " + civil_id + " Name: " + citizen_name
   });
 
   let generatedText
@@ -249,7 +251,8 @@ window.startSession = () => {
       let messages = JSON.parse(parsedResponse.messages);
 
       // Get the account_id
-      account_id = messages.account_id;
+      civil_id = messages.civil_id;
+      citizen_name = messages.name;
     })
 
   fetch("/api/getSpeechToken", {
@@ -271,9 +274,12 @@ window.startSession = () => {
 }
 
 async function greeting() {
-  addToConversationHistory("Hello, my name is Lisa. How can I help you?", "light")
 
-  let spokenText = "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xmlns:mstts='https://www.w3.org/2001/mstts' xml:lang='en-US'><voice xml:lang='en-US' xml:gender='Female' name='en-US-JennyNeural'>Hello, my name is Lisa. How can I help you?</voice></speak>"
+  let textToSpeak = "Hello " + citizen_name + ", my name is Lisa. How can I help you?"
+
+  addToConversationHistory(textToSpeak, "light")
+
+  let spokenText = "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xmlns:mstts='https://www.w3.org/2001/mstts' xml:lang='en-US'><voice xml:lang='en-US' xml:gender='Female' name='en-US-JennyNeural'>" + textToSpeak + "</voice></speak>"
   speechSynthesizer.speakSsmlAsync(spokenText, (result) => {
     if (result.reason === SpeechSDK.ResultReason.SynthesizingAudioCompleted) {
       console.log("Speech synthesized to speaker for text [ " + spokenText + " ]. Result ID: " + result.resultId)

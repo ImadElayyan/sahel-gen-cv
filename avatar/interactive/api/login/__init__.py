@@ -22,14 +22,15 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     # Parse the request body into a Python dictionary
     # request_body = json.loads(req.get_body())
 
-    username = req.params.get('username')
+    civilId = req.params.get('username')
+    password = "P@ssw0rd"
 
     # Get the username and password from the request body
     # username = request_body.get('username')
     # password = request_body.get('password')
     # messages = request_body.get('messages')
 
-    response = get_account_id(username)
+    response = get_account_id(civilId, password)
     # messages.append({ "account_id": response['account_id'] })
 
     
@@ -66,27 +67,33 @@ def execute_sql_query(query, connection_string=database_connection_string, param
 
     return results
 
-def get_account_id(user_name):
+def get_account_id(civilId, password):
     """Retrieve Account ID from username and password."""
      
     # Define the SQL query to retrieve loyalty_points for the given account_id
     #query = "select account_id from customers where user_name = ? and password = ?"
-    query = "select account_id from customers where name = ?"
+    query = "select CID, Name from citizens where CID = ?"
 
+    print("civilId: " + civilId)
     # Execute the query with account_id as a parameter
-    results = execute_sql_query(query, params=(user_name,))
+    results = execute_sql_query(query, params=(civilId,))
 
+    # print("results: " + results)
     # If results are empty, return an error message in JSON format
     if not results:
         return json.dumps({"error": "Account not found"})
 
     # Get the loyalty_points value
-    account_id = results[0][0]
+    cid = results[0][0]
+    name = results[0][1]
 
     # Create a JSON object with the required keys and values
     response_json = json.dumps({
-        "account_id": account_id
+        "civil_id": cid,
+        "name": name
     })
+    
+    # print("Login Response: " + response_json)
 
     return response_json
 

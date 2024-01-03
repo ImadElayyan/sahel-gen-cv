@@ -35,69 +35,70 @@ place_orders = False
 
 functions = [
     {
-        "name": "get_bonus_points",
-        "description": "Check the amount of customer bonus / loyalty points",
+        "name": "get_work_place",
+        "description": "Check the citizen work place based on the provided parameters and fetch the salary and the hire date",
         "parameters": {
             "type": "object",
             "properties": {
                 "account_id": {
                     "type": "number",
-                    "description": "Four digit account number (i.e., 1005, 2345, etc.)"
+                    "description": "9 digits Civil ID (i.e., 123456789012, 123456789013, etc.)"
                 },
             },
             "required": ["account_id"],
         }
     },
     {
-        "name": "get_order_details",
-        "description": "Check customer account for expected delivery date of existing orders based on the provided parameters",
+        "name": "get_citizen_documents",
+        "description": "Check citizen account and fetch the required document details",
         "parameters": {
             "type": "object",
             "properties": {
                 "account_id": {
                     "type": "number",
-                    "description": "Four digit account number (i.e., 1005, 2345, etc.)"
+                    "description": "9 Civil ID (i.e., 123456789012, 123456789013, etc.)"
                 },
             },
             "required": ["account_id"],
-        }
-    },
-    {
-        "name": "order_product",
-        "description": "Order a product based on the provided parameters",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "account_id": {
-                    "type": "number",
-                    "description": "Four digit account number (i.e., 1005, 2345, etc.)"
-                },
-                "product_name": {
-                    "type": "string",
-                    "description": "Name of the product to order (i.e., Elysian Voyager, Terra Roamer, AceMaster 3000, Server & Style)"
-                },
-                "quantity": {
-                    "type": "number",
-                    "description": "Quantity of the product to order (i.e., 1, 2, etc.)"
-                }
-            },
-            "required": ["account_id", "product_name", "quantity"],
-        }
-    },
-        {
-        "name": "get_product_information",
-        "description": "Find information about a product based on a user question. Use only if the requested information if not already available in the conversation context.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "user_question": {
-                    "type": "string",
-                    "description": "User question (i.e., do you have tennis shoes for men?, etc.)"
-                },
-            },
-            "required": ["user_question"],
         }
     }
+    # },
+    # {
+    #     "name": "order_product",
+    #     "description": "Order a product based on the provided parameters",
+    #     "parameters": {
+    #         "type": "object",
+    #         "properties": {
+    #             "account_id": {
+    #                 "type": "number",
+    #                 "description": "Four digit account number (i.e., 1005, 2345, etc.)"
+    #             },
+    #             "product_name": {
+    #                 "type": "string",
+    #                 "description": "Name of the product to order (i.e., Elysian Voyager, Terra Roamer, AceMaster 3000, Server & Style)"
+    #             },
+    #             "quantity": {
+    #                 "type": "number",
+    #                 "description": "Quantity of the product to order (i.e., 1, 2, etc.)"
+    #             }
+    #         },
+    #         "required": ["account_id", "product_name", "quantity"],
+    #     }
+    # },
+    #     {
+    #     "name": "get_product_information",
+    #     "description": "Find information about a product based on a user question. Use only if the requested information if not already available in the conversation context.",
+    #     "parameters": {
+    #         "type": "object",
+    #         "properties": {
+    #             "user_question": {
+    #                 "type": "string",
+    #                 "description": "User question (i.e., do you have tennis shoes for men?, etc.)"
+    #             },
+    #         },
+    #         "required": ["user_question"],
+    #     }
+    # }
 ]
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
@@ -122,10 +123,10 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         function_name = response_message["function_call"]["name"]
 
         available_functions = {
-                "get_bonus_points": get_bonus_points,
-                "get_order_details": get_order_details,
-                "order_product": order_product,
-                "get_product_information": get_product_information,
+                "get_work_place": get_work_place,
+                "get_citizen_documents": get_citizen_documents,
+                "get_citizen_information": get_citizen_information,
+                # "get_product_information": get_product_information,
         }
         function_to_call = available_functions[function_name] 
 
@@ -200,11 +201,11 @@ def execute_sql_query(query, connection_string=database_connection_string, param
 
     return results
 
-def get_bonus_points(account_id):
-    """Retrieve bonus points and its cash value for a given account ID."""
+def get_work_place(account_id):
+    """Retrieve Citizen work place from account_id, with the salary and the number of days off."""
      
     # Define the SQL query to retrieve loyalty_points for the given account_id
-    query = "SELECT loyalty_points FROM Customers WHERE account_id = ?"
+    query = "SELECT Company, HireDate, Salary FROM WorkPlaces WHERE CID = ?"
 
     # Execute the query with account_id as a parameter
     results = execute_sql_query(query, params=(account_id,))
@@ -214,45 +215,74 @@ def get_bonus_points(account_id):
         return json.dumps({"error": "Account not found"})
 
     # Get the loyalty_points value
-    loyalty_points = results[0][0]
+    company = results[0][0]
+    hire_date = results[0][1]
+    salary = results[0][2]
 
-    # Convert loyalty_points to cash_value
-    cash_value = loyalty_points / 9.5
 
     # Create a JSON object with the required keys and values
     response_json = json.dumps({
-        "available_bonus_points": loyalty_points,
-        "cash_value": cash_value
+        "work_place": company,
+        "hire_date": str(hire_date),
+        "salary": str(salary)
     })
+
+    print("Response :" + response_json)
 
     return response_json
 
 
-def get_order_details(account_id):
+def get_citizen_documents(account_id):
      
     # Get orders and corresponding product names for the account_id
     query = '''
-        SELECT o.order_id, p.name as product_name, o.days_to_delivery
-        FROM Orders o
-        JOIN Products p ON o.product_id = p.id
-        WHERE o.account_id = ?
+        SELECT CID, Category, IssueDate, ExpiryDate, DocumentNumber
+        FROM Documents
+        WHERE CID = ?
     '''
-    orders = execute_sql_query(query, params=(account_id,))
+    documents = execute_sql_query(query, params=(account_id,))
     
     # Get today's date and calculate the expected delivery date for each order
     today = datetime.today()
     
     # Create a JSON object with the required details
-    order_details = [
+    document_details = [
         {
-            "product_name": order.product_name,
-            "expected_delivery_date": (today + timedelta(days=order.days_to_delivery)).strftime('%Y-%m-%d')
+            "cid": document.CID,
+            "Category": document.Category,
+            "IssueDate": str(document.IssueDate),
+            "ExpiryDate": str(document.ExpiryDate),
+            "Expired":  document.ExpiryDate < today.date(), 
+            "DocumentNumber": document.DocumentNumber
         }
-        for order in orders
+        for document in documents
     ]
     
     # Return the JSON object
-    return json.dumps(order_details)
+    return json.dumps(document_details)
+
+def get_citizen_information(account_id):
+     
+    # Get orders and corresponding product names for the account_id
+    query = '''
+        SELECT CID, Name
+        FROM Citizens
+        WHERE CID = ?
+    '''
+    citizen = execute_sql_query(query, params=(account_id,))
+    
+    # Get today's date and calculate the expected delivery date for each order
+    today = datetime.today()
+
+    # Create a JSON object with the required keys and values
+    citizen_information = json.dumps({
+        "CID": citizen[0][0],
+        "Name": citizen[0][1]
+    })
+    
+    
+    # Return the JSON object
+    return json.dumps(citizen_information)
 
 def order_product(account_id, product_name, quantity=1):
      
