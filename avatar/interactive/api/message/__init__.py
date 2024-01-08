@@ -61,44 +61,76 @@ functions = [
             },
             "required": ["account_id"],
         }
+    },
+    {
+        "name": "get_citizen_bills",
+        "description": "Check if there are any bills for the citizen account and fetch the required details",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "account_id": {
+                    "type": "number",
+                    "description": "9 Civil ID (i.e., 123456789012, 123456789013, etc.)"
+                },
+            },
+            "required": ["account_id"],
+        }
+    },
+    {
+        "name": "pay_citizen_bills",
+        "description": "pay the required bill for the citizen account and fetch the required details",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "bill_number": {
+                    "type": "number",
+                    "description": "Bill number (i.e., 123456789012, 123456789013, etc.)"
+                },
+                "amount": {
+                    "type": "number",
+                    "description": "decimal amount (i.e., 10.000, 20.250, etc.)"
+                },
+            },
+            "required": ["bill_number", "amount"],
+        },
+    },
+    {
+        "name": "renew_citizen_documents",
+        "description": "renew the required document for the citizen account and fetch the required details",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "account_id": {
+                    "type": "number",
+                    "description": "9 Civil ID (i.e., 123456789012, 123456789013, etc.)"
+                },
+                "documentNumber": {
+                    "type": "string",
+                    "description": "document number (i.e., 123456789012, 123456789013, etc.)"
+                },
+            },
+            "required": ["account_id", "documentNumber"],
+        },
+    },
+    {
+        "name": "get_citizen_details",
+        "description": "get the citizen details based on a user question. Use only if the requested information is not available in the conversation context.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "account_id": {
+                    "type": "number",
+                    "description": "9 Civil ID (i.e., 123456789012, 123456789013, etc.)"
+                },
+                "user_question": {
+                    "type": "string",
+                    "description": "User question (i.e., What is my DOB?, What is my address?, what is my nationality?, what is the full name, etc.)"
+                }
+            },
+            "required": ["account_id", "user_question"],
+        },
     }
-    # },
-    # {
-    #     "name": "order_product",
-    #     "description": "Order a product based on the provided parameters",
-    #     "parameters": {
-    #         "type": "object",
-    #         "properties": {
-    #             "account_id": {
-    #                 "type": "number",
-    #                 "description": "Four digit account number (i.e., 1005, 2345, etc.)"
-    #             },
-    #             "product_name": {
-    #                 "type": "string",
-    #                 "description": "Name of the product to order (i.e., Elysian Voyager, Terra Roamer, AceMaster 3000, Server & Style)"
-    #             },
-    #             "quantity": {
-    #                 "type": "number",
-    #                 "description": "Quantity of the product to order (i.e., 1, 2, etc.)"
-    #             }
-    #         },
-    #         "required": ["account_id", "product_name", "quantity"],
-    #     }
-    # },
-    #     {
-    #     "name": "get_product_information",
-    #     "description": "Find information about a product based on a user question. Use only if the requested information if not already available in the conversation context.",
-    #     "parameters": {
-    #         "type": "object",
-    #         "properties": {
-    #             "user_question": {
-    #                 "type": "string",
-    #                 "description": "User question (i.e., do you have tennis shoes for men?, etc.)"
-    #             },
-    #         },
-    #         "required": ["user_question"],
-    #     }
-    # }
+
 ]
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
@@ -126,7 +158,10 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 "get_work_place": get_work_place,
                 "get_citizen_documents": get_citizen_documents,
                 "get_citizen_information": get_citizen_information,
-                # "get_product_information": get_product_information,
+                "get_citizen_bills": get_citizen_bills,
+                "pay_citizen_bills": pay_citizen_bills,
+                "renew_citizen_documents": renew_citizen_documents,
+                "get_citizen_details": get_citizen_details,
         }
         function_to_call = available_functions[function_name] 
 
@@ -144,16 +179,16 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             "content": None
         })
 
-        if function_to_call == get_product_information:
-            product_info = json.loads(function_response)
-            # show product information after search for a different product that the current one
-            # if product_info['product_image_file'] != current_product_image:
+        # if function_to_call == get_product_information:
+        #     product_info = json.loads(function_response)
+        #     # show product information after search for a different product that the current one
+        #     # if product_info['product_image_file'] != current_product_image:
                 
-            products = [display_product_info(product_info)]
-            current_product_image = product_info['product_image_file']
+        #     products = [display_product_info(product_info)]
+        #     current_product_image = product_info['product_image_file']
             
-            # return only product description to LLM to avoid chatting about prices and image files 
-            function_response = product_info['description']
+        #     # return only product description to LLM to avoid chatting about prices and image files 
+        #     function_response = product_info['description']
 
         messages.append({
             "role": "function",
@@ -284,79 +319,104 @@ def get_citizen_information(account_id):
     # Return the JSON object
     return json.dumps(citizen_information)
 
-def order_product(account_id, product_name, quantity=1):
+def get_citizen_bills(account_id):
+    """Retrieve Citizen bills from account_id, with the bill number, due date and amount."""
      
-    # Step 1: Find the maximum existing order_id
-    query = "SELECT MAX(order_id) FROM Orders"
-    results = execute_sql_query(query)
-    max_order_id = results[0][0] if results[0][0] is not None else 0
+    # Define the SQL query to retrieve loyalty_points for the given account_id
+    query = "SELECT BillNumber, DueDate, Amount, BillType FROM Bills WHERE CID = ?"
 
-    # Step 2 & 3: Find product ID and check stock
-    query = "SELECT id, name, stock FROM Products WHERE LOWER(name) LIKE LOWER(?)"
-    params = (f'%{product_name}%',)
-    results = execute_sql_query(query, params=params)
-    
-    # Handling no match found
-    if not results:
-        return json.dumps({"info": "No matching product found"})
-    
-    product_id, product_name_corrected, stock = results[0]
-    
-    # Check if the stock is sufficient
-    if stock < quantity:
-        return json.dumps({"info": "Insufficient stock"})
-    
-    # Step 4: Place the order
-    # Deducting the ordered quantity from the stock
-    query = "UPDATE Products SET stock = stock - ? WHERE id = ?"
-    params = (quantity, product_id)
-    if place_orders: execute_sql_query(query, params=params)
+    # Execute the query with account_id as a parameter
+    bills = execute_sql_query(query, params=(account_id,))
 
-    # Adding the order details to the Orders table
-    days_to_delivery = 5
-    for i in range(quantity):
-        max_order_id += 1
-        query = "INSERT INTO Orders (order_id, product_id, days_to_delivery, account_id) VALUES (?, ?, ?, ?)"
-        params = (max_order_id, product_id, days_to_delivery, account_id)
-        if place_orders: execute_sql_query(query, params=params)
-    
-    # Step 5: Calculate the expected delivery date and return the JSON object
-    today = datetime.now()
-    expected_delivery_date = today + timedelta(days=days_to_delivery)
-    
-    return json.dumps({
-        "info": "Order placed",
-        "product_name": product_name_corrected,
-        "expected_delivery_date": expected_delivery_date.strftime('%Y-%m-%d')
+    # If results are empty, return an error message in JSON format
+    if not bills:
+        return json.dumps({"error": "Account not found"})
+
+    bill_type_details = [
+        {
+            "cid": account_id,
+            "bill_number": bill.BillNumber,
+            "due_date": str(bill.DueDate),
+            "amount": str(bill.Amount),
+            "bill_type": bill.BillType
+        }
+        for bill in bills
+    ]
+
+    # Create a JSON object with the required keys and values
+    response_json = json.dumps(bill_type_details)
+
+    print("Response :" + response_json)
+
+    return response_json
+
+def pay_citizen_bills(bill_number, amount):
+    """Retrieve Citizen bills from account_id, with the bill number, due date and amount."""
+     
+    # Define the SQL query to retrieve loyalty_points for the given account_id
+    query = "INSERT INTO BillPayment (BillNumber, amount, TrxDate) VALUES (?, ?, GETDATE())"
+
+    # Execute the query with account_id as a parameter
+    results = execute_sql_query(query, params=(bill_number, amount))
+
+    query = "SELECT amount, DueDate, BillType FROM Bills WHERE BillNumber = ?"
+
+    results = execute_sql_query(query, params=(bill_number))
+
+    original_amount = results[0][0]
+    due_date = results[0][1]
+    bill_type = results[0][2]
+
+    remaining_amount = original_amount - amount
+
+    query = "Update Bills SET amount = ? WHERE BillNumber = ?"
+
+    results = execute_sql_query(query, params=(remaining_amount, bill_number))
+
+   
+
+
+
+    # Create a JSON object with the required keys and values
+    response_json = json.dumps({
+        "info": "Bill paid successfully",
+        "bill_number": str(bill_number),
+        "due_date": str(due_date),
+        "bill_type": bill_type,
+        "remaining_amount": str(remaining_amount)
     })
 
-def display_product_info(product_info, display_size=40):
-    """ Display product information """
+    print("Response :" + response_json)
 
-    # Show image
-    image_file = product_info['product_image_file']
-
-    image_url = blob_sas_url.split("?")[0] + f"{image_file}" #+ blob_sas_url.split("?")[1]
-
-    response = requests.get(image_url)
-    print(image_url)
-
-    # Check if the request was successful
-    if response.status_code == 200:
-        return {
-            "tagline": product_info['tagline'],
-            "original_price": product_info['original_price'],
-            "special_offer": product_info['special_offer'],
-            "image_url": image_url 
-            }
-    else:
-        print(f"Failed to retrieve image. HTTP Status code: {response.status_code}")
-
-    print(f"""
-    {product_info['tagline']}
-    Original price: ${product_info['original_price']} Special offer: ${product_info['special_offer']} 
-    """)
+    return response_json
     
+def renew_citizen_documents(account_id, documentNumber):
+    """Renew the expired document."""
+     
+    # Define the SQL query to retrieve loyalty_points for the given account_id
+    query = "UPDATE Documents SET ExpiryDate = DATEADD(YEAR, 3, ExpiryDate) WHERE CID = ? AND DocumentNumber = ?"
+
+    # Execute the query with account_id as a parameter
+    results = execute_sql_query(query, params=(account_id, documentNumber))
+
+   
+    query = '''
+        SELECT CID, Category, IssueDate, ExpiryDate, DocumentNumber
+        FROM Documents
+        WHERE CID = ? AND DocumentNumber = ?
+    '''
+    documents = execute_sql_query(query, params=(account_id, documentNumber))
+
+    # Create a JSON object with the required keys and values
+    response_json = json.dumps({
+        "info": "Document renewed successfully",
+        "document_number": documentNumber,
+        "expiry_date": str(documents[0][3])
+    })
+
+    print("Response :" + response_json)
+
+    return response_json
 def generate_embeddings(text):
     """ Generate embeddings for an input string using embeddings API """
 
@@ -372,7 +432,7 @@ def generate_embeddings(text):
     response = requests.post(url, headers=headers, data=json.dumps(data)).json()
     return response['data'][0]['embedding']
 
-def get_product_information(user_question, categories='*', top_k=1):
+def get_citizen_details(account_id, user_question, top_k=1):
     """ Vectorize user query to search Cognitive Search vector search on index_name. Optional filter on categories field. """
      
     url = f"{search_endpoint}/indexes/{search_index_name}/docs/search?api-version={search_api_version}"
@@ -388,29 +448,36 @@ def get_product_information(user_question, categories='*', top_k=1):
         "vectors": [
             {
                 "value": vector,
-                "fields": "description_vector",
+                "fields": "fullName_vector",
+                "k": top_k
+            },
+            {
+                "value": vector,
+                "fields": "address_vector",
                 "k": top_k
             },
         ],
-        "select": "tagline, description, original_price, special_offer, product_image_file",
+        "select": "Name, Nationality, Address, DOB, Gender, CID",
     }
 
-    # optional filtered search
-    if categories != '*':
-        data["filter"] = f"category eq '{categories}'"
+    data["filter"] = f"CID eq '{account_id}'"
 
-    results = requests.post(url, headers=headers, data=json.dumps(data))    
+    print (data)
+    results = requests.post(url, headers=headers, data=json.dumps(data))  
+
+    print(results)
     results_json = results.json()
+    print(results_json)
     
     # Extracting the required fields from the results JSON
-    product_data = results_json['value'][0] # hard limit to top result for now
+    citiezn_data = results_json['value'][0] # hard limit to top result for now
 
     response_data = {
-        "tagline": product_data.get('tagline'),
-        "description": product_data.get('description'),
-        "original_price": product_data.get('original_price'),
-        "special_offer": product_data.get('special_offer'),
-        "product_image_file": product_data.get('product_image_file'),
+        "name": citiezn_data.get('Name'),
+        "nationality": citiezn_data.get('Nationality'),
+        "address": citiezn_data.get('Address'),
+        "date_of_birth": citiezn_data.get('DOB'),
+        "account_id": citiezn_data.get('CID'),
     }
     return json.dumps(response_data)
 
